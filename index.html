@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaxy Collision – 3D Barnes-Hut N-Body Simulation</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<canvas id="bg"></canvas>
+<canvas id="sim"></canvas>
+<div id="scrim"></div><div id="flash"></div>
+
+<div id="brand"><i></i>Galaxy collision</div>
+
+<aside id="live" class="glass">
+ <div class="lh" id="lhead"><span>Live data</span><small>hide / show</small></div>
+ <div class="lb">
+  <div class="lg"><span><i style="background:#3fb6ff"></i>Galaxy A</span><span><i style="background:#ff9d3c"></i>Galaxy B</span></div>
+  <div class="sec">
+   <div class="st">Collision</div>
+   <div class="lr" title="Time inside the simulation, in simulation units."><span>Simulation time</span><b id="v-time">0</b></div>
+   <div class="lr" title="1.00x is normal. Lower means slow motion."><span>Time speed</span><b id="v-ts">1.00x</b></div>
+   <div class="lr" title="Distance between the two bright cores."><span>Distance between cores</span><b id="v-dist">0</b></div>
+   <div class="lr" title="Whether the cores are moving toward or away from each other."><span>Core motion</span><b id="v-close">0</b></div>
+   <canvas id="spark" width="220" height="36" title="Distance between cores over time. It dips when the galaxies collide."></canvas>
+  </div>
+  <div class="sec">
+   <div class="st">Computation</div>
+   <div class="lr" title="Force calculations Barnes-Hut did this frame."><span>Calculations</span><b id="v-ops">0</b></div>
+   <div class="lr" title="What checking every pair of stars would need."><span>Brute force needs</span><b id="v-naive">0</b></div>
+   <div class="lr hl" title="Brute force calculations divided by Barnes-Hut calculations."><span>Fewer calculations</span><b id="v-save">0x</b></div>
+   <div class="lr" title="Time the physics took for one frame."><span>Physics time</span><b id="v-ms">0</b></div>
+   <div class="lr"><span>Frame rate</span><b id="v-fps">60 fps</b></div>
+  </div>
+  <div class="sec" id="v-follow">
+   <div class="st">Following star <span id="v-fid"></span></div>
+   <div class="lr" title="How fast this star is moving."><span>Speed</span><b id="v-fspd">0</b></div>
+   <div class="lr" title="Gravitational force on the star: its mass times its acceleration."><span>Force on it</span><b id="v-ffor">0</b></div>
+   <div class="lr" title="Distance to the closer of the two cores."><span>Distance to nearest core</span><b id="v-fdist">0</b></div>
+   <div class="lr" title="Far groups of stars this star treats as one point (green boxes)."><span>Groups as one point</span><b id="v-fgrp">0</b></div>
+  </div>
+ </div>
+</aside>
+
+<div id="intro">
+ <div>
+  <h1>Two galaxies. One collision.</h1>
+  <p class="lead">Every star pulls on every other star. The Barnes-Hut algorithm makes that fast enough to watch live in 3D.</p>
+  <div class="card glass">
+   <label><span>Number of stars</span><b id="starv0">4,000</b></label>
+   <input type="range" id="stars0" min="1000" max="10000" step="500" value="4000">
+   <label class="snd"><input type="checkbox" id="snd"> Play ambient music</label>
+   <button class="start" id="begin">Watch the story</button>
+   <button class="soft" id="skipIntro">Skip to simulation</button>
+  </div>
+ </div>
+</div>
+
+<div id="story" class="glass"><h2 id="sh"></h2><p id="sp"></p></div>
+<div id="cap" class="glass"><span id="capin"></span></div>
+<button id="skip" class="glass">Skip intro</button>
+
+<div id="set" class="glass">
+ <div class="r"><span>Accuracy (θ)</span><b id="thl">0.80</b></div>
+ <input type="range" id="theta" min="0" max="1.4" step="0.05" value="0.80">
+ <p class="hint n">Lower is more accurate but slower. <a href="#" id="whyAcc">How is it calculated?</a></p>
+ <label><input type="checkbox" id="grid"> Show tree boxes</label>
+ <p class="hint">The cubes stars are sorted into.</p>
+ <label><input type="checkbox" id="slow" checked> Slow motion at impact</label>
+ <p class="hint">Time slows when the two cores meet.</p>
+ <label><input type="checkbox" id="brute"> Brute force</label>
+ <p class="hint">Checks every pair of stars. Exact, but very slow.</p>
+</div>
+
+<div id="learn" class="glass">
+ <dl>
+  <dt>Accuracy (θ)</dt>
+  <dd>How far away a group of stars must be before it counts as a single point. It is calculated as <b>box size ÷ distance</b>. If that number is below θ, the group is merged. If not, the box is opened and its smaller boxes are checked.<em id="l-acc"></em></dd>
+  <dt>Tree boxes</dt>
+  <dd>Space is split into 8 cubes, and each cube into 8 more, until every cube holds at most one star. Crowded areas get small cubes.</dd>
+  <dt>Group as one point</dt>
+  <dd>A far-away box is replaced by one point at the average position of its stars, weighted by mass (the center of mass).</dd>
+  <dt>Fewer calculations</dt>
+  <dd>Checking every pair needs N × (N − 1) = <b id="l-n"></b> calculations. Barnes-Hut did <b id="l-ops"></b> this frame, which is <b id="l-x"></b> fewer.</dd>
+  <dt>Units</dt>
+  <dd><b>u</b> = distance, <b>t</b> = time, <b>m</b> = mass. These are the simulation's own units, not real light-years, seconds or kilograms. Speed is u/t and force is m·u/t².</dd>
+ </dl>
+</div>
+
+<div id="dock" class="glass">
+ <div class="grp"><span>Stars</span><input type="range" id="stars" min="1000" max="10000" step="500" value="4000"><b id="starv">4,000</b></div>
+ <span class="sep"></span>
+ <button class="pill" id="audio">Music</button>
+ <button class="pill" id="reset">Restart</button>
+ <button class="pill" id="gear">Settings</button>
+ <button class="pill" id="help">Learn</button>
+</div>
+
+<script src="script.js" defer></script>
+</body>
+</html>
